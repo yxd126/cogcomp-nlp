@@ -64,8 +64,4 @@ for JAR in `ls $LIB/*jar`; do
     cpath="$cpath:$JAR"
 done
 
-CMD="java -classpath  ${cpath} -Xmx12g edu.illinois.cs.cogcomp.ner.NerTagger -train $train $test $format $configFile"
-
-echo "$0: running command '$CMD'..."
-
-${CMD}
+java -classpath  ${cpath} -Xmx12g edu.illinois.cs.cogcomp.ner.NerTagger -train $train $test $format $configFile

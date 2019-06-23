@@ -73,7 +73,6 @@ public class LearningCurveMultiDataset {
      * @param incremental if the model is being incremented, this is true.
      * @throws Exception
      */
-
     public static void getLearningCurve(int fixedNumIterations, String trainDataPath, String testDataPath, 
             boolean incremental, ParametersForLbjCode params) throws Exception {
         getLearningCurve(fixedNumIterations, "-c", trainDataPath, testDataPath, incremental, params);
@@ -277,7 +276,7 @@ public class LearningCurveMultiDataset {
                     TestDiscrete.testDiscrete(simpleTest, tagger2, null, testParser2, true, 0);
     
                     double f1Level2 = simpleTest.getOverallStats()[2];
-                    if (f1Level2 > bestF1Level2) {
+                    if (f1Level2 >= bestF1Level2) {
                         bestF1Level2 = f1Level2;
                         bestRoundLevel2 = i;
                         saveme = (NETaggerLevel2) tagger2.clone();

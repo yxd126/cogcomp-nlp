@@ -1,40 +1,49 @@
 package edu.illinois.cs.cogcomp.ner.LbjFeatures;
 
 import java.util.*;
+import java.lang.*;
 
 import edu.illinois.cs.cogcomp.ner.LbjTagger.NEWord;
 import edu.illinois.cs.cogcomp.ner.ExpressiveFeatures.WordTopicAndLayoutFeatures;
 import edu.illinois.cs.cogcomp.ner.ExpressiveFeatures.BrownClusters;
+import edu.illinois.cs.cogcomp.ner.ExpressiveFeatures.CharLangModel;
 import edu.illinois.cs.cogcomp.ner.ExpressiveFeatures.Gazetteers;
 import edu.illinois.cs.cogcomp.ner.ExpressiveFeatures.WordEmbeddings;
 import edu.illinois.cs.cogcomp.ner.LbjTagger.ParametersForLbjCode;
 import edu.illinois.cs.cogcomp.ner.StringStatisticsUtils.*;
 
-  
+
 //---------------- CLASSIFIER LEVEL 1 -------------------
- 
+
 discrete% wordType(NEWord word) <-
 {
-	if(word.params.featuresToUse.containsKey("WordTopicTitleInfo")){
-		sense "" : WordTopicAndLayoutFeatures.getWordType(word); 
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("WordTopicTitleInfo")){
+		sense "" : WordTopicAndLayoutFeatures.getWordType(word);
+		if(ParametersForLbjCode.currentParameters.useFE) {
+			sense word.domainName+"" : WordTopicAndLayoutFeatures.getWordType(word);
+		}
 	}
 }
 
 discrete% GazetteersFeatures(NEWord word) <-
 {
-	if(word.params.featuresToUse.containsKey("GazetteersFeatures"))
-	{ 
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("GazetteersFeatures"))
+	{
  		int i=0;
    		NEWord w = word, last = (NEWord)word.next;
-  
+
    		for (i = 0; i < 2 && last != null; ++i) last = (NEWord) last.next;
    		for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
-  
- 		do 
+
+ 		do
    		{
 	 		if(w.gazetteers!=null)
-		 		for(int j=0;j<w.gazetteers.size();j++)
+		 		for(int j=0;j<w.gazetteers.size();j++) {
 					sense i: w.gazetteers.get(j);
+					if(ParametersForLbjCode.currentParameters.useFE) {
+						sense word.domainName+i: w.gazetteers.get(j);
+					}
+				}
 	 		i++;
 	 		w = (NEWord) w.next;
    		}while(w != last);
@@ -44,8 +53,8 @@ discrete% GazetteersFeatures(NEWord word) <-
 
 real% WordEmbeddingFeatures(NEWord word) <-
 {
-  	if(word.params.featuresToUse.containsKey("WordEmbeddings"))
-	{ 
+  	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("WordEmbeddings"))
+	{
   		int i;
   		NEWord w = word, last = word;
   		for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
@@ -54,8 +63,12 @@ real% WordEmbeddingFeatures(NEWord word) <-
   		for (; w != last; w = (NEWord) w.next) {
   			double[] embedding=WordEmbeddings.getEmbedding(w);
 			if(embedding!=null)
-				for(int dim=0;dim<embedding.length;dim++)
+				for(int dim=0;dim<embedding.length;dim++){
 					sense "place"+i+"dim"+dim : embedding[dim];
+					if(ParametersForLbjCode.currentParameters.useFE) {
+						sense word.domainName+"place"+i+"dim"+dim : embedding[dim];
+					}
+				}
 			i++;
 		}
 	}
@@ -63,28 +76,35 @@ real% WordEmbeddingFeatures(NEWord word) <-
 
 discrete% WikifierFeatures(NEWord word) <-
 {
-	if(word.params.featuresToUse.containsKey("WikifierFeatures")){
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("WikifierFeatures")){
 
-        if(word.wikifierFeatures != null){
-            for(int i = 0; i < word.wikifierFeatures.length; i++){
-                sense "" : "WIKI-"+word.wikifierFeatures[i];
-            }
-        }
-    }
+		if(word.wikifierFeatures != null){
+			for(int i = 0; i < word.wikifierFeatures.length; i++){
+				sense "" : "WIKI-"+word.wikifierFeatures[i];
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName+"" : "WIKI-"+word.wikifierFeatures[i];
+				}
+			}
+		}
+	}
 }
 
 
 discrete% IsSentenceStart(NEWord word) <-
 {
-	if(word.previous==null)
+	if(word.previous==null){
 		sense "start" : "1";
+		if(ParametersForLbjCode.currentParameters.useFE) {
+			sense word.domainName+"start" : "1";
+		}
+	}
 }
 
 
 discrete% Forms(NEWord word) <-
 {
-  	if(word.params.featuresToUse.containsKey("Forms"))
-	{ 
+  	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("Forms"))
+	{
   		int i;
   		NEWord w = word, last = word;
   		for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
@@ -97,7 +117,51 @@ discrete% Forms(NEWord word) <-
   		w=startWord;
   		for (; w != last; w = (NEWord) w.next){
 			sense i : MyString.normalizeDigitsForFeatureExtraction(w.form);
+			if(ParametersForLbjCode.currentParameters.useFE) {
+				sense word.domainName+i : MyString.normalizeDigitsForFeatureExtraction(w.form);
+			}
 			i++;
+		}
+	}
+}
+
+discrete% Forms_context(NEWord word) <-
+{
+  	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("Forms"))
+	{
+  		int i;
+  		NEWord w = word, last = word;
+  		for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
+  		for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
+
+		int startIndex=i;
+		NEWord startWord=w;
+  		for (; w != last; w = (NEWord) w.next){
+  		    if (w == word) continue;
+  		    sense i++ : w.form;
+  		}
+  		i=startIndex;
+  		w=startWord;
+  		for (; w != last; w = (NEWord) w.next){
+            if(w == word) continue;
+   			sense i : MyString.normalizeDigitsForFeatureExtraction(w.form);
+			if(ParametersForLbjCode.currentParameters.useFE) {
+				sense word.domainName+i : MyString.normalizeDigitsForFeatureExtraction(w.form);
+			}
+			i++;
+		}
+	}
+}
+
+discrete% Forms_word(NEWord word) <-
+{
+  	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("Forms"))
+	{
+  		NEWord w = word;
+        sense 0 : w.form;
+		sense 0 : MyString.normalizeDigitsForFeatureExtraction(w.form);
+		if(ParametersForLbjCode.currentParameters.useFE) {
+			sense word.domainName+0 : MyString.normalizeDigitsForFeatureExtraction(w.form);
 		}
 	}
 }
@@ -105,9 +169,9 @@ discrete% Forms(NEWord word) <-
 // Problem 1
 discrete% BrownClusterPaths(NEWord word) <-
 {
-  	if(word.params.featuresToUse.containsKey("BrownClusterPaths"))
-	{ 
-		BrownClusters bc = word.params.brownClusters;
+  	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("BrownClusterPaths"))
+	{
+		BrownClusters bc = BrownClusters.get();
   		int i;
   		NEWord w = word, last = word;
   		for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
@@ -115,21 +179,526 @@ discrete% BrownClusterPaths(NEWord word) <-
 
   		for (; w != last; w = (NEWord) w.next){
   			String[] paths=bc.getPrefixes(w);
-  			for(int j=0;j<paths.length;j++)
-  				sense i : paths[j];
+  			for(int j=0;j<paths.length;j++) {
+  			  	sense i : paths[j];
+  			  	if(ParametersForLbjCode.currentParameters.useFE) {
+	  			  	sense word.domainName+i : paths[j];
+	  			}
+  			}
   			i++;
   		}
 	}
 }
 
+discrete{false, true}% CharLangModelPrediction(NEWord word) <-
+{
+  	CharLangModel charlm = CharLangModel.get();
+  	Double isEntity_U = charlm.getEntity_U(word);
+    Double isNotEntity_U = charlm.getNotEntity_U(word);
+  	if( Double.compare(isEntity_U, isNotEntity_U) < 0 && Double.compare(isEntity_U, 25.00) < 0 )
+        sense "Entity" : true;
+    else
+        sense "Entity": false;
+
+}
+
+discrete{false, true}% CharLangModelPrediction_context(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+  	int i;
+  	NEWord w = word, last = word;
+  	for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
+  	for (i = 0; i >= -2 && w.previous != null; --i) w = (NEWord) w.previous;
+  	for (; w != last; w = (NEWord) w.next){
+  		Double isEntity_L = charlm.getEntity_L(w);
+        Double isNotEntity_L = charlm.getNotEntity_L(w);
+        //Double isEntity_U = charlm.getEntity_U(w);
+        //Double isNotEntity_U = charlm.getNotEntity_U(w);
+
+  		//if( Double.compare(isEntity_L, isNotEntity_L) < 0 && Double.compare(isEntity_L, 45.00) < 0 )
+  		//    sense i+"L_Threshold" : true;
+        //else
+        //    sense i+"L_Threshold": false;
+
+  		if( Double.compare(isEntity_L, isNotEntity_L) < 0 )
+          	sense i+"L_NoThreshold" : true;
+        else
+         	sense i+"L_NoThreshold" : false;
+
+        //if( Double.compare(isEntity_U, isNotEntity_U) < 0 && Double.compare(isEntity_U, 40.00) < 0 )
+        //    sense i+"U_Threshold" : true;
+        //else
+        //    sense i+"U_Threshold": false;
+
+        /*if( Double.compare(isEntity_U, isNotEntity_U) < 0 && w.form.length() > 1)
+            sense i+"U_NoThreshold" : true;
+        else {
+            if (w.form == w.form.toUpperCase() && w.form != w.form.toLowerCase() && w.form.length() > 1) {
+                NEWord nw = w;
+                nw.form = w.form.charAt(0) + w.form.substring(1).toLowerCase();
+                Double isNewEntity_U = charlm.getEntity_U(w);
+                Double isNewNotEntity_U = charlm.getNotEntity_U(w);
+                if( Double.compare(isNewEntity_U, isNewNotEntity_U) < 0)
+                    sense i+"U_NoThreshold" : true;
+                else
+                    sense i+"U_NoThreshold" : false;
+            }
+            else {
+                sense i+"U_NoThreshold" : false;
+            }
+        }*/
+
+  		i++;
+  	}
+}
+
+discrete% CharLangModelPrediction_diff(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+  	int i;
+  	NEWord w = word, last = word;
+  	for (i = 0; i <= 3 && last != null; ++i) last = (NEWord) last.next;
+  	for (i = 0; i >= -3 && w.previous != null; --i) w = (NEWord) w.previous;
+  	for (; w != last; w = (NEWord) w.next){
+  		Double isEntity = charlm.getEntity_L(w);
+        Double isNotEntity = charlm.getNotEntity_L(w);
+        /*if( Double.compare(isEntity, 40.00) < 0 ) {
+            sense i+"diff" : isEntity-isNotEntity;
+        }
+  		else {
+  		    if( Double.compare(isEntity, isNotEntity) < 0) {
+  		        sense i+"diff" : 0.0;
+  		    }
+  		    else {*/
+  		        sense "diff" : isEntity-isNotEntity;
+  		    //}
+  		//}
+  		i++;
+  	}
+}
+
+discrete% CharLangModelPrediction_ratio(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+  	int i;
+  	NEWord w = word, last = word;
+  	for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
+  	for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
+  	for (; w != last; w = (NEWord) w.next){
+  		Double isEntity = charlm.getEntity_U(w);
+        Double isNotEntity = charlm.getNotEntity_U(w);
+        /*if( Double.compare(isEntity, 40.00) < 0 ) {
+            sense i+"ratio" : isEntity/isNotEntity;
+        }
+        else {
+            if( Double.compare(isEntity, isNotEntity) < 0) {
+                sense i+"ratio" : 1.0;
+       	    }
+            else { */
+                sense "ratio" : isEntity/isNotEntity;
+            //}
+       	//}
+        i++;
+  	}
+}
+
+discrete% CharLangModelPrediction_root(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+  	int i;
+  	NEWord w = word, last = word;
+  	for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
+  	for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
+  	for (; w != last; w = (NEWord) w.next){
+  		Double isEntity = charlm.getEntity(w);
+        Double isNotEntity = charlm.getNotEntity(w);
+        sense i+"Entity": Math.sqrt(isEntity);
+        sense i+"NotEntity": Math.sqrt(isNotEntity);
+  		i++;
+  	}
+}
+
+discrete% CharLangModelPrediction_square(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+  	int i;
+  	NEWord w = word, last = word;
+  	for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
+  	for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
+  	for (; w != last; w = (NEWord) w.next){
+  		Double isEntity = charlm.getEntity(w);
+        Double isNotEntity = charlm.getNotEntity(w);
+        sense i+"Entity": Math.pow(isEntity,2);
+        sense i+"NotEntity": Math.pow(isNotEntity,2);
+  		i++;
+  	}
+}
+
+
+
+discrete{false, true}% CharLangModelPER_context(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+      	int i;
+        NEWord w = word, last = word;
+        for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
+        for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
+        for (; w != last; w = (NEWord) w.next){
+            Double isPER = charlm.getPER(w);
+            Double isLOC = charlm.getLOC(w);
+            Double isORG = charlm.getORG(w);
+            Double isNotEntity = charlm.getNotEntity(w);
+            Double isEntity_U = charlm.getEntity_U(w);
+            Double isNotEntity_U = charlm.getNotEntity_U(w);
+            //if ( Double.compare(isEntity_U, isNotEntity_U) < 0 && Double.compare(isEntity_U, 40.00) < 0 ) {
+                /*
+                if( Double.compare(isPER, isNotEntity) < 0 && Double.compare(isPER, 50.00) < 0 && Double.compare(isPER, 20.00) > 0)
+                    sense i+"PER_50" : true;
+                else
+                    sense i+"PER_50" : false;
+                if( Double.compare(isPER, isNotEntity) < 0 && Double.compare(isPER, 20.00) < 0 && Double.compare(isPER, 10.00) > 0)
+                    sense i+"PER_20" : true;
+                else
+                    sense i+"PER_20" : false;
+                if( Double.compare(isPER, isNotEntity) < 0 && Double.compare(isPER, 10.00) < 0 && Double.compare(isPER, 5.00) > 0)
+                    sense i+"PER_10" : true;
+                else
+                    sense i+"PER_10" : false;
+                if( Double.compare(isPER, isNotEntity) < 0 && Double.compare(isPER, 5.00) < 0)
+                    sense i+"PER_5" : true;
+                else
+                    sense i+"PER_5" : false;
+                if( Double.compare(isPER, isNotEntity) < 0 && Double.compare(isPER, 50.00) > 0)
+                    sense i+"PER_tooLarge" : true;
+                else
+                    sense i+"PER_tooLarge" : false;
+                */
+                //if( Double.compare(isPER, isNotEntity) < 0 && Double.compare(isPER, 20.00) < 0)
+                if( Double.compare(isPER, isNotEntity) < 0)
+                    sense i+"PER_20" : true;
+                else
+                    sense i+"PER_20" : false;
+            //}
+          	i++;
+        }
+}
+
+discrete{false, true}% CharLangModelPER(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+   	Double isPER = charlm.getPER(word);
+    Double isNotEntity = charlm.getNotEntity_L(word);
+    if( Double.compare(isPER, isNotEntity) > 0)
+        sense "PER" : false;
+    else
+        sense "PER" : true;
+}
+
+discrete{false, true}% CharLangModelArabic(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+   	Double isArabic = charlm.getArabic(word);
+    Double isNotEntity = charlm.getNotEntity(word);
+    Double isEntity_U = charlm.getEntity_U(word);
+    Double isNotEntity_U = charlm.getNotEntity_U(word);
+    //if( Double.compare(isArabic, isNotEntity) < 0 && Double.compare(isArabic, 15.00) < 0 &&  Double.compare(isEntity_U, isNotEntity_U) < 0 && Double.compare(isEntity_U, 30.00) < 0)
+    if( Double.compare(isArabic, isNotEntity) < 0 )
+        sense "Arabic" : true;
+    else
+        sense "Arabic" : false;
+
+    //Double isArabicLOC = charlm.getArabicLOC(word);
+    //if( Double.compare(isArabicLOC, isNotEntity) > 0)
+    //    sense "LOC" : false;
+    //else
+    //    sense "LOC" : true;
+}
+
+discrete{false, true}% CharLangModelArabic_context(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+    int i;
+    NEWord w = word, last = word;
+    for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
+    for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
+  	for (; w != last; w = (NEWord) w.next){
+   		Double isArabic = charlm.getArabic(w);
+        Double isNotEntity = charlm.getNotEntity(w);
+        Double isEntity_U = charlm.getEntity_U(w);
+        Double isNotEntity_U = charlm.getNotEntity_U(w);
+        //if( Double.compare(isArabic, isNotEntity) < 0 && Double.compare(isArabic, 15.00) < 0 &&  Double.compare(isEntity_U, isNotEntity_U) < 0 && Double.compare(isEntity_U, 25.00) < 0)
+        if( Double.compare(isArabic, isNotEntity) < 0 && Double.compare(isArabic, 15.00) < 0)
+            sense i+"Arabic" : true;
+        else
+            sense i+"Arabic" : false;
+    	i++;
+    }
+}
+
+discrete{false, true}% CharLangModelLanguage_context(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+    int i;
+    NEWord w = word, last = word;
+    for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
+    for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
+  	for (; w != last; w = (NEWord) w.next){
+   		Double isArabic = charlm.getArabic(w);
+   		Double isChinese = charlm.getChinese(w);
+   		Double isRussian = charlm.getRussian(w);
+   		Double isGerman = charlm.getGerman(w);
+        Double isNotEntity = charlm.getNotEntity(w);
+        Double isEntity_U = charlm.getEntity_U(w);
+        Double isNotEntity_U = charlm.getNotEntity_U(w);
+        if( (Double.compare(isArabic, isNotEntity) < 0 && Double.compare(isArabic, 15.00) < 0 || Double.compare(isChinese, isNotEntity) < 0 && Double.compare(isChinese, 15.00) < 0 || Double.compare(isRussian, isNotEntity) < 0 && Double.compare(isRussian, 15.00) < 0 || Double.compare(isGerman, isNotEntity) < 0 && Double.compare(isGerman, 15.00) < 0) &&  Double.compare(isEntity_U, isNotEntity_U) < 0 && Double.compare(isEntity_U, 25.00) < 0)
+        //if( Double.compare(isArabic, isNotEntity) < 0 && Double.compare(isArabic, 15.00) < 0 || Double.compare(isChinese, isNotEntity) < 0 && Double.compare(isChinese, 15.00) < 0 || Double.compare(isRussian, isNotEntity) < 0 && Double.compare(isRussian, 15.00) < 0 || Double.compare(isGerman, isNotEntity) < 0 && Double.compare(isGerman, 15.00) < 0)
+            sense i+"Language" : true;
+        else
+            sense i+"Language" : false;
+    	i++;
+    }
+}
+
+discrete{false, true}% CharLangModelRussian(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+   	Double isRussian = charlm.getRussian(word);
+    Double isNotEntity = charlm.getNotEntity(word);
+    Double isEntity_U = charlm.getEntity_U(word);
+    Double isNotEntity_U = charlm.getNotEntity_U(word);
+    //if( Double.compare(isRussian, isNotEntity) < 0 && Double.compare(isRussian, 15.00) < 0 &&  Double.compare(isEntity_U, isNotEntity_U) < 0 && Double.compare(isEntity_U, 25.00) < 0)
+    if( Double.compare(isRussian, isNotEntity) < 0 )
+        sense "Russian" : true;
+    else
+        sense "Russian" : false;
+
+    //Double isRussianLOC = charlm.getRussianLOC(word);
+    //if( Double.compare(isRussianLOC, isNotEntity) > 0)
+    //    sense "LOC" : false;
+    //else
+    //    sense "LOC" : true;
+}
+
+discrete{false, true}% CharLangModelChinese(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+   	Double isChinese = charlm.getChinese(word);
+    Double isNotEntity = charlm.getNotEntity(word);
+    Double isEntity_U = charlm.getEntity_U(word);
+    Double isNotEntity_U = charlm.getNotEntity_U(word);
+    //if( Double.compare(isChinese, isNotEntity) < 0 && Double.compare(isChinese, 15.00) < 0 &&  Double.compare(isEntity_U, isNotEntity_U) < 0 && Double.compare(isEntity_U, 25.00) < 0)
+    if( Double.compare(isChinese, isNotEntity) < 0 )
+        sense "Chinese" : true;
+    else
+        sense "Chinese" : false;
+
+    //Double isChineseLOC = charlm.getChineseLOC(word);
+    //if( Double.compare(isChineseLOC, isNotEntity) > 0)
+    //    sense "LOC" : false;
+    //else
+    //    sense "LOC" : true;
+}
+
+discrete{false, true}% CharLangModelGerman(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+   	Double isGerman = charlm.getGerman(word);
+    Double isNotEntity = charlm.getNotEntity(word);
+    Double isEntity_U = charlm.getEntity_U(word);
+    Double isNotEntity_U = charlm.getNotEntity_U(word);
+    //if( Double.compare(isGerman, isNotEntity) < 0 && Double.compare(isGerman, 15.00) < 0 &&  Double.compare(isEntity_U, isNotEntity_U) < 0 && Double.compare(isEntity_U, 25.00) < 0)
+    if( Double.compare(isGerman, isNotEntity) < 0)
+        sense "German" : true;
+    else
+        sense "German" : false;
+
+    //Double isGermanLOC = charlm.getGermanLOC(word);
+    //if( Double.compare(isGermanLOC, isNotEntity) > 0)
+    //   sense "LOC" : false;
+    //else
+    //    sense "LOC" : true;
+}
+
+discrete{false, true}% CharLangModelORG_context(NEWord word) <-
+{
+  	CharLangModel charlm = CharLangModel.get();
+      	int i;
+        NEWord w = word, last = word;
+        for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
+        for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
+        for (; w != last; w = (NEWord) w.next){
+            Double isORG = charlm.getORG(w);
+            Double isNotEntity = charlm.getNotEntity(w);
+            Double isEntity_U = charlm.getEntity_U(w);
+            Double isNotEntity_U = charlm.getNotEntity_U(w);
+            if ( Double.compare(isEntity_U, isNotEntity_U) < 0 && Double.compare(isEntity_U, 40.00) < 0 ) {
+
+                if( Double.compare(isORG, isNotEntity) < 0 && Double.compare(isORG, 50.00) < 0 && Double.compare(isORG, 20.00) > 0)
+                    sense i+"ORG_50" : true;
+                else
+                    sense i+"ORG_50" : false;
+                if( Double.compare(isORG, isNotEntity) < 0 && Double.compare(isORG, 20.00) < 0 && Double.compare(isORG, 10.00) > 0)
+                    sense i+"ORG_20" : true;
+                else
+                    sense i+"ORG_20" : false;
+                if( Double.compare(isORG, isNotEntity) < 0 && Double.compare(isORG, 10.00) < 0 && Double.compare(isORG, 5.00) > 0)
+                    sense i+"ORG_10" : true;
+                else
+                    sense i+"ORG_10" : false;
+                if( Double.compare(isORG, isNotEntity) < 0 && Double.compare(isORG, 5.00) < 0)
+                    sense i+"ORG_5" : true;
+                else
+                    sense i+"ORG_5" : false;
+                if( Double.compare(isORG, isNotEntity) < 0 && Double.compare(isORG, 50.00) > 0)
+                    sense i+"ORG_tooLarge" : true;
+                else
+                    sense i+"ORG_tooLarge" : false;
+
+                /*
+                if( Double.compare(isORG, isNotEntity) < 0 && Double.compare(isORG, 20.00) < 0)
+                    sense i+"ORG_20" : true;
+                else
+                    sense i+"ORG_20" : false;
+                */
+            }
+          	i++;
+        }
+}
+
+discrete{false, true}% CharLangModelORG(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+   	Double isORG = charlm.getORG(word);
+    Double isNotEntity = charlm.getNotEntity_L(word);
+    if( Double.compare(isORG, isNotEntity) > 0)
+        sense "ORG" : false;
+    else
+        sense "ORG" : true;
+}
+
+discrete{false, true}% CharLangModelLOC_context(NEWord word) <-
+{
+  	CharLangModel charlm = CharLangModel.get();
+  	int i;
+    NEWord w = word, last = word;
+    for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
+    for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
+    for (; w != last; w = (NEWord) w.next){
+        Double isLOC = charlm.getLOC(w);
+        Double isNotEntity = charlm.getNotEntity(w);
+        Double isEntity_U = charlm.getEntity_U(w);
+        Double isNotEntity_U = charlm.getNotEntity_U(w);
+        //if ( Double.compare(isEntity_U, isNotEntity_U) < 0 && Double.compare(isEntity_U, 40.00) < 0 ) {
+            /*
+            if( Double.compare(isLOC, isNotEntity) < 0 && Double.compare(isLOC, 50.00) < 0 && Double.compare(isLOC, 20.00) > 0)
+                sense i+"LOC_50" : true;
+            else
+                sense i+"LOC_50" : false;
+            if( Double.compare(isLOC, isNotEntity) < 0 && Double.compare(isLOC, 20.00) < 0 && Double.compare(isLOC, 10.00) > 0)
+                sense i+"LOC_20" : true;
+            else
+                sense i+"LOC_20" : false;
+            if( Double.compare(isLOC, isNotEntity) < 0 && Double.compare(isLOC, 10.00) < 0 && Double.compare(isLOC, 5.00) > 0)
+                sense i+"LOC_10" : true;
+            else
+                sense i+"LOC_10" : false;
+            if( Double.compare(isLOC, isNotEntity) < 0 && Double.compare(isLOC, 5.00) < 0)
+                sense i+"LOC_5" : true;
+            else
+                sense i+"LOC_5" : false;
+            if( Double.compare(isLOC, isNotEntity) < 0 && Double.compare(isLOC, 50.00) > 0)
+                sense i+"LOC_tooLarge" : true;
+            else
+                sense i+"LOC_tooLarge" : false;
+            */
+            //if( Double.compare(isLOC, isNotEntity) < 0 && Double.compare(isLOC, 20.00) < 0)
+            if( Double.compare(isLOC, isNotEntity) < 0)
+                sense i+"LOC_20" : true;
+            else
+                sense i+"LOC_20" : false;
+        //}
+      	i++;
+    }
+}
+
+discrete{false, true}% CharLangModelLOC(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+   	Double isLOC = charlm.getLOC(word);
+    Double isNotEntity = charlm.getNotEntity_L(word);
+    if( Double.compare(isLOC, isNotEntity) > 0)
+        sense "LOC" : false;
+    else
+        sense "LOC" : true;
+}
+
+discrete{false, true}% CharLangModelType_context(NEWord word) <-
+{
+  	CharLangModel charlm = CharLangModel.get();
+  	int i;
+    NEWord w = word, last = word;
+    for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
+    for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
+    for (; w != last; w = (NEWord) w.next){
+        Double isPER = charlm.getLOC(w);
+        Double isORG = charlm.getLOC(w);
+        Double isLOC = charlm.getLOC(w);
+        Double isNotEntity = charlm.getNotEntity(w);
+        if( Double.compare(isLOC, isNotEntity) < 0 && Double.compare(isLOC, 50.00) < 0 && Double.compare(isPER, isNotEntity) < 0 && Double.compare(isPER, 50.00) < 0 && Double.compare(isORG, isNotEntity) < 0 && Double.compare(isORG, 50.00) < 0)
+            sense i+"_PER_ORG_LOC" : true;
+        else
+            sense i+"_PER_ORG_LOC" : false;
+        if( Double.compare(isLOC, isNotEntity) < 0 && Double.compare(isLOC, 50.00) < 0 && Double.compare(isPER, isNotEntity) < 0 && Double.compare(isPER, 50.00) < 0 )
+            sense i+"_PER_LOC" : true;
+        else
+            sense i+"_PER_ORG_LOC" : false;
+        if( Double.compare(isLOC, isNotEntity) < 0 && Double.compare(isLOC, 50.00) < 0 && Double.compare(isORG, isNotEntity) < 0 && Double.compare(isORG, 50.00) < 0)
+            sense i+"_ORG_LOC" : true;
+        else
+            sense i+"_ORG_LOC" : false;
+        if( Double.compare(isPER, isNotEntity) < 0 && Double.compare(isPER, 50.00) < 0 && Double.compare(isORG, isNotEntity) < 0 && Double.compare(isORG, 50.00) < 0)
+            sense i+"_PER_ORG" : true;
+        else
+            sense i+"_PER_ORG" : false;
+      	i++;
+    }
+}
+
+discrete{false, true}% CharLangModelMISC(NEWord word) <-
+{
+    CharLangModel charlm = CharLangModel.get();
+   	Double isMISC = charlm.getMISC(word);
+    Double isNotEntity = charlm.getNotEntity(word);
+    if( Double.compare(isMISC, isNotEntity) > 0)
+        sense "MISC" : false;
+    else
+        sense "MISC" : true;
+}
+
+discrete% CharLangModelEntity(NEWord word) <-
+{
+  	CharLangModel charlm = CharLangModel.get();
+  	Double isEntity = charlm.getEntity(word);
+  	sense "EntityPPL" : isEntity;
+}
+
+discrete% CharLangModelNotEntity(NEWord word) <-
+{
+  	CharLangModel charlm = CharLangModel.get();
+  	Double isNotEntity = charlm.getNotEntity(word);
+  	sense "NotEntityPPL" : isNotEntity;
+}
 
 // Problem 1
 discrete% FormParts(NEWord word) <-
 {
-  	if(word.params.featuresToUse.containsKey("Forms")&&
-  		word.params.tokenizationScheme.equals(ParametersForLbjCode.TokenizationScheme.DualTokenizationScheme))
-	{ 
+  	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("Forms")&&
+  		ParametersForLbjCode.currentParameters.tokenizationScheme.equals(ParametersForLbjCode.TokenizationScheme.DualTokenizationScheme))
+	{
 		sense "0" : word.form;
+		if(ParametersForLbjCode.currentParameters.useFE) {
+			sense word.domainName+"0" : word.form;
+		}
 		int i=-1;
 		int count=-1;
 		NEWord w = (NEWord)word.previous;
@@ -138,6 +707,9 @@ discrete% FormParts(NEWord word) <-
 			for(int j=0;j<lastParts.length;j++)
 			{
 				sense count:  MyString.normalizeDigitsForFeatureExtraction(lastParts[j]);
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName+count : MyString.normalizeDigitsForFeatureExtraction(lastParts[j]);
+				}
 				count--;
 			}
 			w = (NEWord)w.previous;
@@ -151,6 +723,9 @@ discrete% FormParts(NEWord word) <-
 			for(int j=0;j<lastParts.length;j++)
 			{
 				sense count:  MyString.normalizeDigitsForFeatureExtraction(lastParts[j]);
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName+count : MyString.normalizeDigitsForFeatureExtraction(lastParts[j]);
+				}
 				count++;
 			}
 			w = (NEWord)w.next;
@@ -163,72 +738,122 @@ discrete% FormParts(NEWord word) <-
 // Feature set i
 discrete{false, true}% Capitalization(NEWord word) <-
 {
-	if(word.params.featuresToUse.containsKey("Capitalization"))
-	{ 
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("Capitalization"))
+	{
 	 	int i;
   		NEWord w = word, last = word;
   		for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
   		for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
 
-  		for (; w != last; w = (NEWord) w.next) sense i++ : w.capitalized;
+  		for (; w != last; w = (NEWord) w.next) {
+  			sense i : w.capitalized;
+  			if(ParametersForLbjCode.currentParameters.useFE) {
+  				sense word.domainName+i : w.capitalized;
+  			}
+  			i++;
+  		}
   	}
 }
+
+discrete{false, true}% IsLeftAndRightCapitalized(NEWord word) <-
+{
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("Capitalization"))
+	{
+	 	int i;
+  		NEWord w = word, last = word;
+  		if( word.previous != null && word.next != null ) {
+  		    sense "" : ((NEWord) word.previous).capitalized && ((NEWord) word.next).capitalized;
+  		}
+  		else {
+  		    sense "" : false;
+  		}
+  	}
+}
+
 
 // Feature set ii
 discrete{false, true}% WordTypeInformation(NEWord word) <-
 {
-	if(word.params.featuresToUse.containsKey("WordTypeInformation"))
-	{ 
-	  int i;
-	  NEWord w = word, last = word;
-	  for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
-	  for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("WordTypeInformation"))
+	{
+		int i;
+		NEWord w = word, last = word;
+		for (i = 0; i <= 2 && last != null; ++i) last = (NEWord) last.next;
+		for (i = 0; i > -2 && w.previous != null; --i) w = (NEWord) w.previous;
 
-	  for (; w != last; w = (NEWord) w.next, ++i)
-	  {
-	    boolean allCapitalized = true, allDigits = true, allNonLetters = true;
-	
-	    for (int j = 0; j < w.form.length(); ++j) {
-	    	char c = w.form.charAt(j);
-	      	allCapitalized &= Character.isUpperCase(c);
-	      	allDigits &= (Character.isDigit(c)||c=='.'||c==',');
-	      	allNonLetters &= !Character.isLetter(c);
-	    }
-	    sense "c" + i : allCapitalized;
-	    sense "d" + i : allDigits;
-	    sense "p" + i : allNonLetters;
-  	  }
+		for (; w != last; w = (NEWord) w.next, ++i)
+		{
+			boolean allCapitalized = true, allDigits = true, allNonLetters = true;
+
+			for (int j = 0; j < w.form.length(); ++j) {
+				char c = w.form.charAt(j);
+		  		allCapitalized &= Character.isUpperCase(c);
+		  		allDigits &= (Character.isDigit(c)||c=='.'||c==',');
+		  		allNonLetters &= !Character.isLetter(c);
+			}
+			sense "c" + i : allCapitalized;
+			sense "d" + i : allDigits;
+			sense "p" + i : allNonLetters;
+			if(ParametersForLbjCode.currentParameters.useFE) {
+				sense word.domainName + "c" + i : allCapitalized;
+				sense word.domainName + "d" + i : allDigits;
+				sense word.domainName + "p" + i : allNonLetters;
+			}
+  		}
   	}
 }
 
 // Feature set iii
 discrete% Affixes(NEWord word) <-
 {
-	if(word.params.featuresToUse.containsKey("Affixes"))
-	{ 
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("Affixes"))
+	{
   		int N = word.form.length();
 	  	for (int i = 3; i <= 4; ++i)
-    		if (word.form.length() > i) sense "p|" : word.form.substring(0, i);
+			if (word.form.length() > i) {
+				sense "p|" : word.form.substring(0, i);
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName + "p|" : word.form.substring(0, i);
+				}
+			}
   		for (int i = 1; i <= 4; ++i)
-    		if (word.form.length() > i) sense "s|" : word.form.substring(N - i);
-		
-		if(word.params.tokenizationScheme.equals(ParametersForLbjCode.TokenizationScheme.DualTokenizationScheme))	
-			for(int i=0;i<word.parts.length;i++)
-				sense "part"+i : word.parts[i];
+			if (word.form.length() > i) {
+				sense "s|" : word.form.substring(N - i);
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName + "s|" : word.form.substring(N - i);
+				}
+			}
 
+		if(ParametersForLbjCode.currentParameters.tokenizationScheme.equals(ParametersForLbjCode.TokenizationScheme.DualTokenizationScheme))
+			for(int i=0;i<word.parts.length;i++) {
+				sense "part"+i : word.parts[i];
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName + "part"+i : word.parts[i];
+				}
+			}
 	}
 }
 
 discrete% AffixesZH(NEWord word) <-
 {
-	if(word.params.featuresToUse.containsKey("Affixes")
-	&& word.params.language.equals("zh"))
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("Affixes")
+	&& ParametersForLbjCode.currentParameters.language.equals("zh"))
 	{
   		int N = word.form.length();
 	  	for (int i = 1; i <= 2; ++i)
-    		if (word.form.length() > i) sense "ZH-p|" : word.form.substring(0, i);
+			if (word.form.length() > i) {
+				sense "ZH-p|" : word.form.substring(0, i);
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName + "ZH-p|" : word.form.substring(0, i);
+				}
+			}
   		for (int i = 1; i <= 2; ++i)
-    		if (word.form.length() > i) sense "ZH-s|" : word.form.substring(N - i);
+			if (word.form.length() > i) {
+				sense "ZH-s|" : word.form.substring(N - i);
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName + "ZH-s|" : word.form.substring(N - i);
+				}
+			}
 	}
 }
 
@@ -237,54 +862,74 @@ discrete NELabel(NEWord word) <- { return word.neLabel; }
 
 real% nonLocalFeatures(NEWord word) <-
 {
-	//no need to check which features are active here- if 
-	//nonlocal features are not used, they will not be generated! 
+	//no need to check which features are active here- if
+	//nonlocal features are not used, they will not be generated!
 	String[] feats=word.getAllNonlocalFeatures();
-	for(int i=0;i<feats.length;i++)
+	for(int i=0;i<feats.length;i++) {
 		sense feats[i]: word.getNonLocFeatCount(feats[i]);
+		if(ParametersForLbjCode.currentParameters.useFE) {
+			sense word.domainName + feats[i]: word.getNonLocFeatCount(feats[i]);
+		}
+	}
 }
 
 
 // Feature set iv
 discrete% PreviousTag1Level1(NEWord word) <-
 {
-	if(word.params.featuresToUse.containsKey("PreviousTag1"))
-	{ 
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("PreviousTag1"))
+	{
 	  	int i;
 	  	NEWord w = word;
 	  	if(w.previous!=null)
 	  	{
-			if (NETaggerLevel1.isTraining) 
-	    		sense "-1" : ((NEWord)w.previous).neLabel;
-	    	else
-	    		sense "-1" : ((NEWord)w.previous).neTypeLevel1;
-      	}
-    }
+			if (NETaggerLevel1.isTraining/*&&ParametersForLbjCode.currentParameters.trainingIteration==0*/) {
+				sense "-1" : ((NEWord)w.previous).neLabel;
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName+"-1" : ((NEWord)w.previous).neLabel;
+				}
+			}
+			else {
+				sense "-1" : ((NEWord)w.previous).neTypeLevel1;
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName + "-1" : ((NEWord)w.previous).neTypeLevel1;
+				}
+			}
+	  	}
+	}
 }
 
 // Feature set iv
 discrete% PreviousTag2Level1(NEWord word) <-
 {
-	if(word.params.featuresToUse.containsKey("PreviousTag2"))
-	{ 
-	  int i;
-	  NEWord w = word;
-	  if(w.previous!=null)
-	  {
-		if(((NEWord)w.previous).previous!=null)
-	  	{
-			if (NETaggerLevel1.isTraining) 
-		   		sense "-2" : ((NEWord)((NEWord)w.previous).previous).neLabel;
-		   	else
-		    	sense "-2" : ((NEWord)((NEWord)w.previous).previous).neTypeLevel1;
-	 	}
-	  }
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("PreviousTag2"))
+	{
+		int i;
+		NEWord w = word;
+		if(w.previous!=null)
+		{
+			if(((NEWord)w.previous).previous!=null)
+	  		{
+				if (NETaggerLevel1.isTraining/*&&ParametersForLbjCode.currentParameters.trainingIteration==0*/) {
+					sense "-2" : ((NEWord)((NEWord)w.previous).previous).neLabel;
+					if(ParametersForLbjCode.currentParameters.useFE) {
+						sense word.domainName + "-2" : ((NEWord)((NEWord)w.previous).previous).neLabel;
+					}
+				}
+				else {
+					sense "-2" : ((NEWord)((NEWord)w.previous).previous).neTypeLevel1;
+					if(ParametersForLbjCode.currentParameters.useFE) {
+						sense word.domainName + "-2" : ((NEWord)((NEWord)w.previous).previous).neTypeLevel1;
+					}
+		   		}
+	 		}
+		}
   	}
 }
 
 real% prevTagsForContextLevel1(NEWord word) <-
 {
-	if(word.params.featuresToUse.containsKey("PrevTagsForContext"))
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("PrevTagsForContext"))
 	{
 	  	int i,j;
   		NEWord w = word;
@@ -295,75 +940,91 @@ real% prevTagsForContextLevel1(NEWord word) <-
 			words[i]=w.form;
 			w = (NEWord) w.next;
 		}
-			
+
 		w=(NEWord)word.previousIgnoreSentenceBoundary;
 		for(i=0;i<1000&&w!=null;i++){
 			for(j=0;j<words.length;j++){
 				if(words[j]!=null&&w.form.equals(words[j])){
-						if(NETaggerLevel1.isTraining){
-							if(word.params.prevPredictionsLevel1RandomGenerator.useNoise())
-								count[j].addToken(word.params.prevPredictionsLevel1RandomGenerator.randomLabel());
-							else					 
-								count[j].addToken(w.neLabel);
-						}
+					if(NETaggerLevel1.isTraining/*&&ParametersForLbjCode.currentParameters.trainingIteration==0*/){
+						if(ParametersForLbjCode.currentParameters.prevPredictionsLevel1RandomGenerator.useNoise())
+							count[j].addToken(ParametersForLbjCode.currentParameters.prevPredictionsLevel1RandomGenerator.randomLabel());
 						else
-			    			count[j].addToken(w.neTypeLevel1);
+							count[j].addToken(w.neLabel);
+						}
+					else
+						count[j].addToken(w.neTypeLevel1);
 				}
 			}
 			w=(NEWord)w.previousIgnoreSentenceBoundary;
 		}
-	
+
 		for(j=0;j<count.length;j++){
-			if(count[j]!=null)	
+			if(count[j]!=null)
 			{
 				String[] all=count[j].getTokens();
-				for(i=0;i<all.length;i++)
-					sense j+"_"+all[i] : count[j].getCount(all[i])/((double)count[j].totalTokens);	
+				for(i=0;i<all.length;i++) {
+					sense j+"_"+all[i] : count[j].getCount(all[i])/((double)count[j].totalTokens);
+					if(ParametersForLbjCode.currentParameters.useFE) {
+						sense word.domainName+j+"_"+all[i] : count[j].getCount(all[i])/((double)count[j].totalTokens);
+					}
+				}
 			}
 		}
 	}
 }
 
-// See nearly identical PreviousTagPatternLevel2 for comments on this.   
+// See nearly identical PreviousTagPatternLevel2 for comments on this.
 discrete% PreviousTagPatternLevel1(NEWord word) <-
 {
-    if(word.params.featuresToUse.containsKey("PreviousTagPatternLevel1")){
-        NEWord w = (NEWord)word.previous;
-        Vector pattern = new Vector();
-        String label ="O";
-        if(w!=null) {
-            if (NETaggerLevel1.isTraining) 
-                label = ((NEWord)w).neLabel;
-            else
-                label = ((NEWord)w).neTypeLevel1;
-        } else {
-            label = null;
-        }
-        
-        for(int i=0;i<2&&label!=null&&label.equals("O"); i++ ) {
-            pattern.addElement(w.form);
-            w = (NEWord)w.previous;
-            if(w!=null) {
-                if (NETaggerLevel1.isTraining) 
-                    label = ((NEWord)w).neLabel;
-                else
-                    label = ((NEWord)w).neTypeLevel1;
-            } else {
-                label = null;
-            }
-        }
-        if(pattern.size()>0&&label!=null&&!label.equals("O")) {
-            label=label.substring(2);
-            String res = "";
-            for(int i=0;i<pattern.size();i++)
-                res=(String) pattern.elementAt(i)+"_"+res;
-            res = label+"_"+res;
-            sense "" : res;		
-        }
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("PreviousTagPatternLevel1")){
+		NEWord w = (NEWord)word.previous;
+		Vector pattern = new Vector();
+		String label ="O";
+		if(w!=null) {
+			if (NETaggerLevel1.isTraining)
+				label = ((NEWord)w).neLabel;
+			else
+				label = ((NEWord)w).neTypeLevel1;
+		} else {
+			label = null;
+		}
+
+		for(int i=0;i<2&&label!=null&&label.equals("O"); i++ ) {
+			pattern.addElement(w.form);
+			w = (NEWord)w.previous;
+			if(w!=null) {
+				if (NETaggerLevel1.isTraining)
+					label = ((NEWord)w).neLabel;
+				else
+					label = ((NEWord)w).neTypeLevel1;
+			} else {
+				label = null;
+			}
+		}
+		if(pattern.size()>0&&label!=null&&!label.equals("O")) {
+			label=label.substring(2);
+			String res = "";
+			for(int i=0;i<pattern.size();i++)
+				res=(String) pattern.elementAt(i)+"_"+res;
+			res = label+"_"+res;
+			sense "" : res;
+			if(ParametersForLbjCode.currentParameters.useFE) {
+				sense word.domainName + "" : res;
+			}
+		}
 	}
 }
 
-mixed% FeaturesSharedTemp(NEWord word) 	<-	IsSentenceStart, Capitalization, nonLocalFeatures, GazetteersFeatures, FormParts, Forms,  WordTypeInformation, Affixes, BrownClusterPaths, WordEmbeddingFeatures, WikifierFeatures, AffixesZH
+//mixed% FeaturesSharedTemp(NEWord word) 	<-	IsSentenceStart, Capitalization, nonLocalFeatures, GazetteersFeatures, FormParts, Forms_word, Forms_context, IsLeftAndRightCapitalized&&Forms_word,  WordTypeInformation, Affixes, BrownClusterPaths, WordEmbeddingFeatures, WikifierFeatures, AffixesZH
+
+//mixed% FeaturesSharedTemp(NEWord word) 	<-	IsSentenceStart, Capitalization, nonLocalFeatures, GazetteersFeatures, FormParts, Forms, WordTypeInformation, Affixes, BrownClusterPaths, WordEmbeddingFeatures, WikifierFeatures, AffixesZH
+
+mixed% FeaturesSharedTemp(NEWord word) 	<-	IsSentenceStart, nonLocalFeatures, GazetteersFeatures, Forms_context, BrownClusterPaths, Forms_word, nonLocalFeatures
+
+//mixed% FeaturesSharedTemp(NEWord word) 	<-	IsSentenceStart, Capitalization, nonLocalFeatures, GazetteersFeatures, FormParts, Forms, WordTypeInformation, Affixes, BrownClusterPaths, WordEmbeddingFeatures, WikifierFeatures, AffixesZH, CharLangModelArabic, CharLangModelRussian,  /* CharLangModelChinese, CharLangModelGerman, CharLangModelLanguage_context,*/ CharLangModelPER, CharLangModelLOC, CharLangModelORG, /* CharLangModelORG_context, CharLangModelPER_context, CharLangModelLOC_context,*/ CharLangModelPrediction_context , CharLangModelPrediction_diff, CharLangModelPrediction_ratio
+
+//mixed% FeaturesSharedTemp(NEWord word) 	<- Forms, CharLangModelPrediction_context /*, CharLangModelPrediction_diff*/
+
 
 mixed% FeaturesLevel1SharedWithLevel2(NEWord word)  <- FeaturesSharedTemp /*,  IsWordCaseNormalized&&FeaturesSharedTemp*/
 
@@ -371,7 +1032,7 @@ mixed% FeaturesLevel1Only(NEWord word) <- PreviousTagPatternLevel1, PreviousTag1
 
 discrete NETaggerLevel1(NEWord word)  <-
 learn NELabel
-  using FeaturesLevel1SharedWithLevel2,FeaturesLevel1Only
+  using FeaturesLevel1SharedWithLevel2, FeaturesLevel1Only
   with new SparseNetworkLearner(new SparseAveragedPerceptron(.05, 0, 30))
 end
 
@@ -380,35 +1041,51 @@ end
 // Feature set iv
 discrete% PreviousTag1Level2(NEWord word) <-
 {
-	if(word.params.featuresToUse.containsKey("PreviousTag1"))
-	{ 
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("PreviousTag1"))
+	{
 	  	int i;
 	  	NEWord w = word;
 	  	if(w.previous!=null)
 	  	{
-			if (NETaggerLevel2.isTraining) 
-	    		sense "-1" : ((NEWord)w.previous).neLabel;
-	    	else
-	    		sense "-1" : ((NEWord)w.previous).neTypeLevel2;
-      	}
-    }
+			if (NETaggerLevel2.isTraining/*&&ParametersForLbjCode.currentParameters.trainingIteration==0*/) {
+				sense "-1" : ((NEWord)w.previous).neLabel;
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName + "-1" : ((NEWord)w.previous).neLabel;
+				}
+			}
+			else {
+				sense "-1" : ((NEWord)w.previous).neTypeLevel2;
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName + "-1" : ((NEWord)w.previous).neTypeLevel2;
+				}
+			}
+	  	}
+	}
 }
 
 // Feature set iv
 discrete% PreviousTag2Level2(NEWord word) <-
 {
-	if(word.params.featuresToUse.containsKey("PreviousTag2"))
-	{ 
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("PreviousTag2"))
+	{
 	  int i;
 	  NEWord w = word;
 	  if(w.previous!=null)
 	  {
 		if(((NEWord)w.previous).previous!=null)
 	  	{
-			if (NETaggerLevel2.isTraining) 
+			if (NETaggerLevel2.isTraining/*&&ParametersForLbjCode.currentParameters.trainingIteration==0*/) {
 		   		sense "-2" : ((NEWord)((NEWord)w.previous).previous).neLabel;
-		   	else
-		    	sense "-2" : ((NEWord)((NEWord)w.previous).previous).neTypeLevel2;
+		   		if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName + "-2" : ((NEWord)((NEWord)w.previous).previous).neLabel;
+				}
+			}
+		   	else {
+				sense "-2" : ((NEWord)((NEWord)w.previous).previous).neTypeLevel2;
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName + "-2" : ((NEWord)((NEWord)w.previous).previous).neTypeLevel2;
+				}
+			}
 	 	}
 	  }
   	}
@@ -416,7 +1093,7 @@ discrete% PreviousTag2Level2(NEWord word) <-
 
 real% prevTagsForContextLevel2(NEWord word) <-
 {
-	if(word.params.featuresToUse.containsKey("PrevTagsForContext"))
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("PrevTagsForContext"))
 	{
 	  	int i,j;
   		NEWord w = word;
@@ -427,30 +1104,34 @@ real% prevTagsForContextLevel2(NEWord word) <-
 			words[i]=w.form;
 			w = (NEWord) w.next;
 		}
-			
+
 		w=(NEWord)word.previousIgnoreSentenceBoundary;
 		for(i=0;i<1000&&w!=null;i++){
 			for(j=0;j<words.length;j++){
 				if(words[j]!=null&&w.form.equals(words[j])){
-						if(NETaggerLevel2.isTraining) {
-							if(word.params.prevPredictionsLevel2RandomGenerator.useNoise())
-								count[j].addToken(word.params.prevPredictionsLevel2RandomGenerator.randomLabel());
-							else					 
+						if(NETaggerLevel2.isTraining/*&&ParametersForLbjCode.currentParameters.trainingIteration==0*/) {
+							if(ParametersForLbjCode.currentParameters.prevPredictionsLevel2RandomGenerator.useNoise())
+								count[j].addToken(ParametersForLbjCode.currentParameters.prevPredictionsLevel2RandomGenerator.randomLabel());
+							else
 								count[j].addToken(w.neLabel);
 						}
 						else
-			    			count[j].addToken(w.neTypeLevel2);
+							count[j].addToken(w.neTypeLevel2);
 				}
 			}
 			w=(NEWord)w.previousIgnoreSentenceBoundary;
 		}
-	
+
 		for(j=0;j<count.length;j++){
-			if(count[j]!=null)	
+			if(count[j]!=null)
 			{
 				String[] all=count[j].getTokens();
-				for(i=0;i<all.length;i++)
-					sense j+"_"+all[i] : count[j].getCount(all[i])/((double)count[j].totalTokens);	
+				for(i=0;i<all.length;i++) {
+					sense j+"_"+all[i] : count[j].getCount(all[i])/((double)count[j].totalTokens);
+					if(ParametersForLbjCode.currentParameters.useFE) {
+						sense word.domainName + j+"_"+all[i] : count[j].getCount(all[i])/((double)count[j].totalTokens);
+					}
+				}
 			}
 		}
 	}
@@ -459,71 +1140,77 @@ real% prevTagsForContextLevel2(NEWord word) <-
 
 real% Level1AggregationFeatures(NEWord word) <-
 {
-        if(word.params.featuresToUse.containsKey("PredictionsLevel1")){
-        	for(int i=0;i<word.getLevel1AggregationFeatures().size();i++){
-        		NEWord.RealFeature f=word.getLevel1AggregationFeatures().get(i);
-        		sense f.featureGroupName: f.featureValue;
-        	}
-        }
+		if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("PredictionsLevel1")){
+			for(int i=0;i<word.getLevel1AggregationFeatures().size();i++){
+				NEWord.RealFeature f=word.getLevel1AggregationFeatures().get(i);
+				sense f.featureGroupName: f.featureValue;
+				if(ParametersForLbjCode.currentParameters.useFE) {
+					sense word.domainName + f.featureGroupName: f.featureValue;
+				}
+			}
+		}
 }
 
 // This looks at a small window of text (at most 2 tokens) before the word in question.
 // If there is a named entity in the window, make feature out of NETag+(w-2)+(w-1)
 discrete% PreviousTagPatternLevel2(NEWord word) <-
 {
-    if(word.params.featuresToUse.containsKey("PreviousTagPatternLevel2")){
-        Vector pattern = new Vector();
-        String label ="O";
+	if(ParametersForLbjCode.currentParameters.featuresToUse.containsKey("PreviousTagPatternLevel2")){
+		Vector pattern = new Vector();
+		String label ="O";
 
-        // think of this block as getting the label of the word.
-        // (duplicated below)
-        NEWord w = (NEWord)word.previous;
-        if(w!=null) {
-            if (NETaggerLevel2.isTraining) 
-                label = ((NEWord)w).neLabel;
-            else
-                label = ((NEWord)w).neTypeLevel2;
-        } else {
-            label = null;
-        }
+		// think of this block as getting the label of the word.
+		// (duplicated below)
+		NEWord w = (NEWord)word.previous;
+		if(w!=null) {
+			if (NETaggerLevel2.isTraining)
+				label = ((NEWord)w).neLabel;
+			else
+				label = ((NEWord)w).neTypeLevel2;
+		} else {
+			label = null;
+		}
 
-        // look back at most 2 tokens (from word)
-        // stop if you reach a labeled token.
-        for(int i = 0; i < 2 && label != null && label.equals("O"); i++ ) {
-            // w.form is the actual text of the word.
-            // never actually add words NOT labeled O (ie, named entities)
-            pattern.addElement(w.form);
-            w = (NEWord)w.previous;
-            if(w!=null) {
-                if (NETaggerLevel2.isTraining) 
-                    label = ((NEWord)w).neLabel;
-                else
-                    label = ((NEWord)w).neTypeLevel2;
-            } else {
-                label = null;
-            }
-        }
-        
-        if(pattern.size()>0&&label!=null&&!label.equals("O")) {
-            // presumably this captures B-, or I-, or O-, etc.
-            label=label.substring(2); 
-            String res = "";
-            for(int i=0;i<pattern.size();i++)
-                res=(String) pattern.elementAt(i)+"_"+res;
-            res = label+"_"+res;
-            sense "" : res;		
-        }
+		// look back at most 2 tokens (from word)
+		// stop if you reach a labeled token.
+		for(int i = 0; i < 2 && label != null && label.equals("O"); i++ ) {
+			// w.form is the actual text of the word.
+			// never actually add words NOT labeled O (ie, named entities)
+			pattern.addElement(w.form);
+			w = (NEWord)w.previous;
+			if(w!=null) {
+				if (NETaggerLevel2.isTraining)
+					label = ((NEWord)w).neLabel;
+				else
+					label = ((NEWord)w).neTypeLevel2;
+			} else {
+				label = null;
+			}
+		}
+
+		if(pattern.size()>0&&label!=null&&!label.equals("O")) {
+			// presumably this captures B-, or I-, or O-, etc.
+			label=label.substring(2);
+			String res = "";
+			for(int i=0;i<pattern.size();i++)
+				res=(String) pattern.elementAt(i)+"_"+res;
+			res = label+"_"+res;
+			sense "" : res;
+			if(ParametersForLbjCode.currentParameters.useFE) {
+				sense word.domainName + "" : res;
+			}
+		}
 	}
 }
 
 
 
 mixed% FeaturesLevel2(NEWord word) <-   PreviousTagPatternLevel2, Level1AggregationFeatures,  PreviousTag1Level2, PreviousTag2Level2 ,  prevTagsForContextLevel2, PreviousTag1Level2&&Forms
-																	
+
 
 discrete NETaggerLevel2(NEWord word)  <-
-learn NELabel 
-  using FeaturesLevel1SharedWithLevel2,FeaturesLevel2
+learn NELabel
+  using FeaturesLevel1SharedWithLevel2 ,FeaturesLevel2
   with new SparseNetworkLearner(new SparseAveragedPerceptron(.05, 0, 30))
 end
 

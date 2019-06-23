@@ -44,6 +44,7 @@ public class NETagPlain {
         Data data;
 
         if(!dataFormat.equals("-plaintext")) {
+            System.out.println("Reading data");
             data = new Data(inputPath, inputPath, dataFormat, new String[]{}, new String[]{}, params);
         }else{
             // plaintext reading/writing.
@@ -63,7 +64,6 @@ public class NETagPlain {
             }
 
             data = new Data();
-
             for (int fileId = 0; fileId < inFiles.size(); fileId++) {
                 logger.debug("Tagging file: " + inFiles.elementAt(fileId));
                 ArrayList<LinkedVector> sentences =
@@ -91,7 +91,8 @@ public class NETagPlain {
                     }
                     res.add("");
                 }
-                LineIO.write(outputPath + "/" + docid + ".txt", res);
+//                LineIO.write(outputPath + "/" + docid + ".txt", res);
+                LineIO.write(outputPath + "/result.txt", res);
             }
         }else if(dataFormat.equals("-json")){
             File inputfiles = new File(inputPath);

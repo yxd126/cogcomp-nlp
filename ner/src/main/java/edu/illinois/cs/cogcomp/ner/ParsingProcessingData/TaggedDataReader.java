@@ -39,6 +39,7 @@ public class TaggedDataReader {
             Arrays.sort(files);
         }
         for (String file1 : files) {
+            System.out.println("Reading file: " + file1);
             String file = path + "/" + file1;
             if ((new File(file)).isFile() && (!file1.equals(".DS_Store"))) {
                 res.addElement(readFile(file, format, file1, cp));

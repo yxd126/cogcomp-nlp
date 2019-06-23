@@ -45,7 +45,7 @@ public class NerTagger {
                     dataFormat = args[3];
                 }
                 LearningCurveMultiDataset.getLearningCurve(-1, dataFormat, args[1], args[2], false, cp);
-            }else if (args[0].equalsIgnoreCase("-trinFixedIterations"))
+            }else if (args[0].equalsIgnoreCase("-trainFixedIterations"))
                 LearningCurveMultiDataset.getLearningCurve(Integer.parseInt(args[1]), args[2], args[3], false, cp);
             else {
                 // load up the models
