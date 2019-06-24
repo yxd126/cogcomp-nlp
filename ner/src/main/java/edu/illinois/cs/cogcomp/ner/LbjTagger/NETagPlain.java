@@ -103,7 +103,7 @@ public class NETagPlain {
                         res.add("");
                     }
                     System.out.println("Writing file: " + file1);
-                    LineIO.write(outputPath + "/" + file1, res);
+                    LineIO.write(outputPath + "/" + file1 + ".txt", res);
 //                    LineIO.write(outputPath + "/result.txt", res);
                 }
             }else if(dataFormat.equals("-json")){
