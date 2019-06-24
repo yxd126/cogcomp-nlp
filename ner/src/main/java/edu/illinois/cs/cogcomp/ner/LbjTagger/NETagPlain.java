@@ -9,6 +9,7 @@ package edu.illinois.cs.cogcomp.ner.LbjTagger;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Vector;
 
@@ -43,72 +44,151 @@ public class NETagPlain {
 
         Data data;
 
-        if(!dataFormat.equals("-plaintext")) {
-            System.out.println("Reading data");
-            data = new Data(inputPath, inputPath, dataFormat, new String[]{}, new String[]{}, params);
-        }else{
-            // plaintext reading/writing.
-            File f = new File(inputPath);
-            Vector<String> inFiles = new Vector<>();
-            Vector<String> outFiles = new Vector<>();
-            if (f.isDirectory()) {
-                String[] files = f.list();
-                for (String file : files)
-                    if (!file.startsWith(".")) {
-                        inFiles.addElement(inputPath + File.separator + file);
-                        outFiles.addElement(outputPath + File.separator + file);
-                    }
-            } else {
-                inFiles.addElement(inputPath);
-                outFiles.addElement(outputPath);
-            }
+        String[] filenames = (new File(inputPath)).list();
 
-            data = new Data();
-            for (int fileId = 0; fileId < inFiles.size(); fileId++) {
-                logger.debug("Tagging file: " + inFiles.elementAt(fileId));
-                ArrayList<LinkedVector> sentences =
-                        PlainTextReader.parsePlainTextFile(inFiles.elementAt(fileId), params);
-                NERDocument doc = new NERDocument(sentences, "consoleInput");
-                data.documents.add(doc);
-            }
-        }
+        // sort the files so we can get deterministic order.
+        Arrays.sort(filenames);
 
-        ExpressiveFeaturesAnnotator.annotate(data, params);
-        Decoder.annotateDataBIO(data, params);
+        for (String file1 : filenames) {
+            System.out.println("Reading file: " + file1);
+            String file = inputPath + "/" + file1;
 
-
-
-        if(dataFormat.equals("-c")) {
-            for (int docid = 0; docid < data.documents.size(); docid++) {
-                List<String> res = new ArrayList<>();
-                ArrayList<LinkedVector> sentences = data.documents.get(docid).sentences;
-                for (LinkedVector vector : sentences) {
-
-                    for (int j = 0; j < vector.size(); j++) {
-                        NEWord w = (NEWord) vector.get(j);
-                        res.add(w.form + " " + w.neLabel + " " + w.neTypeLevel1);
-
-                    }
-                    res.add("");
+            if(!dataFormat.equals("-plaintext")) {
+//                System.out.println("Reading data");
+                data = new Data(file, file, dataFormat, new String[]{}, new String[]{}, params);
+            }else{
+                // plaintext reading/writing.
+                File f = new File(inputPath);
+                Vector<String> inFiles = new Vector<>();
+                Vector<String> outFiles = new Vector<>();
+                if (f.isDirectory()) {
+                    String[] files = f.list();
+                    for (String file2 : files)
+                        if (!file.startsWith(".")) {
+                            inFiles.addElement(inputPath + File.separator + file2);
+                            outFiles.addElement(outputPath + File.separator + file2);
+                        }
+                } else {
+                    inFiles.addElement(inputPath);
+                    outFiles.addElement(outputPath);
                 }
-//                LineIO.write(outputPath + "/" + docid + ".txt", res);
-                LineIO.write(outputPath + "/result.txt", res);
-            }
-        }else if(dataFormat.equals("-json")){
-            File inputfiles = new File(inputPath);
-            List<TextAnnotation> tas = new ArrayList<>();
-            for(String f : inputfiles.list()) {
-                TextAnnotation ta = SerializationHelper.deserializeTextAnnotationFromFile(f, true);
-                tas.add(ta);
-            }
-            TextAnnotationConverter.Data2TextAnnotation(data, tas);
 
-            for(TextAnnotation ta : tas){
-                SerializationHelper.serializeTextAnnotationToFile(ta, outputPath + "/" + ta.getId(), true);
+                data = new Data();
+                for (int fileId = 0; fileId < inFiles.size(); fileId++) {
+                    logger.debug("Tagging file: " + inFiles.elementAt(fileId));
+                    ArrayList<LinkedVector> sentences =
+                            PlainTextReader.parsePlainTextFile(inFiles.elementAt(fileId), params);
+                    NERDocument doc = new NERDocument(sentences, "consoleInput");
+                    data.documents.add(doc);
+                }
             }
-        }else{
-            throw new NotImplementedException("We do not yet support dataFormat of " + dataFormat + " yet.");
+
+            System.out.println("Annotating file: " + file1);
+            ExpressiveFeaturesAnnotator.annotate(data, params);
+            Decoder.annotateDataBIO(data, params);
+
+
+
+            if(dataFormat.equals("-c")) {
+                for (int docid = 0; docid < data.documents.size(); docid++) {
+                    List<String> res = new ArrayList<>();
+                    ArrayList<LinkedVector> sentences = data.documents.get(docid).sentences;
+                    for (LinkedVector vector : sentences) {
+
+                        for (int j = 0; j < vector.size(); j++) {
+                            NEWord w = (NEWord) vector.get(j);
+                            res.add(w.form + " " + w.neLabel + " " + w.neTypeLevel1);
+
+                        }
+                        res.add("");
+                    }
+                    System.out.println("Writing file: " + file1);
+                    LineIO.write(outputPath + "/" + docid + ".txt", res);
+//                    LineIO.write(outputPath + "/result.txt", res);
+                }
+            }else if(dataFormat.equals("-json")){
+                File inputfiles = new File(inputPath);
+                List<TextAnnotation> tas = new ArrayList<>();
+                for(String f : inputfiles.list()) {
+                    TextAnnotation ta = SerializationHelper.deserializeTextAnnotationFromFile(f, true);
+                    tas.add(ta);
+                }
+                TextAnnotationConverter.Data2TextAnnotation(data, tas);
+
+                for(TextAnnotation ta : tas){
+                    SerializationHelper.serializeTextAnnotationToFile(ta, outputPath + "/" + ta.getId(), true);
+                }
+            }else{
+                throw new NotImplementedException("We do not yet support dataFormat of " + dataFormat + " yet.");
+            }
         }
+
+//        if(!dataFormat.equals("-plaintext")) {
+//            System.out.println("Reading data");
+//            data = new Data(inputPath, inputPath, dataFormat, new String[]{}, new String[]{}, params);
+//        }else{
+//            // plaintext reading/writing.
+//            File f = new File(inputPath);
+//            Vector<String> inFiles = new Vector<>();
+//            Vector<String> outFiles = new Vector<>();
+//            if (f.isDirectory()) {
+//                String[] files = f.list();
+//                for (String file : files)
+//                    if (!file.startsWith(".")) {
+//                        inFiles.addElement(inputPath + File.separator + file);
+//                        outFiles.addElement(outputPath + File.separator + file);
+//                    }
+//            } else {
+//                inFiles.addElement(inputPath);
+//                outFiles.addElement(outputPath);
+//            }
+//
+//            data = new Data();
+//            for (int fileId = 0; fileId < inFiles.size(); fileId++) {
+//                logger.debug("Tagging file: " + inFiles.elementAt(fileId));
+//                ArrayList<LinkedVector> sentences =
+//                        PlainTextReader.parsePlainTextFile(inFiles.elementAt(fileId), params);
+//                NERDocument doc = new NERDocument(sentences, "consoleInput");
+//                data.documents.add(doc);
+//            }
+//        }
+//
+//        ExpressiveFeaturesAnnotator.annotate(data, params);
+//        Decoder.annotateDataBIO(data, params);
+//
+//
+//
+//        if(dataFormat.equals("-c")) {
+//            for (int docid = 0; docid < data.documents.size(); docid++) {
+//                List<String> res = new ArrayList<>();
+//                ArrayList<LinkedVector> sentences = data.documents.get(docid).sentences;
+//                for (LinkedVector vector : sentences) {
+//
+//                    for (int j = 0; j < vector.size(); j++) {
+//                        NEWord w = (NEWord) vector.get(j);
+//                        res.add(w.form + " " + w.neLabel + " " + w.neTypeLevel1);
+//
+//                    }
+//                    res.add("");
+//                }
+////                LineIO.write(outputPath + "/" + docid + ".txt", res);
+//                LineIO.write(outputPath + "/result.txt", res);
+//            }
+//        }else if(dataFormat.equals("-json")){
+//            File inputfiles = new File(inputPath);
+//            List<TextAnnotation> tas = new ArrayList<>();
+//            for(String f : inputfiles.list()) {
+//                TextAnnotation ta = SerializationHelper.deserializeTextAnnotationFromFile(f, true);
+//                tas.add(ta);
+//            }
+//            TextAnnotationConverter.Data2TextAnnotation(data, tas);
+//
+//            for(TextAnnotation ta : tas){
+//                SerializationHelper.serializeTextAnnotationToFile(ta, outputPath + "/" + ta.getId(), true);
+//            }
+//        }else{
+//            throw new NotImplementedException("We do not yet support dataFormat of " + dataFormat + " yet.");
+//        }
 
 
     }
